@@ -1,0 +1,108 @@
+/**
+ *  Copyright 2015 SmartThings
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ *  SIR321 Immersion Control
+ *
+ *  Author: Ross McCarthy
+ */
+definition(
+    name: "SIR321 Immersion Control",
+    namespace: "smartthings",
+    author: "Ross McCarthy",
+    description: "Control SIR321 Immersion Switch. Heat when within a time window to a preset temperature",
+    category: "Green Living",
+    iconUrl: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn.png",
+    iconX2Url: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn@2x.png"
+)
+
+preferences {
+	section("Choose the Immersion temperature sensor... "){
+		input "sensor", "capability.temperatureMeasurement", title: "Temperature Sensor"
+	}
+	section("Select the Immersion Switch... "){
+		input "outlets", "capability.switch", title: "Immersion Switch", multiple: false
+	}
+	section("Set the desired temperature..."){
+		input "setpoint", "decimal", title: "Set Temp"
+	}
+    section("During this time window") {
+		input "timeOfStart", "time", title: "Start Time?"
+		input "endTime", "time", title: "End Time?", required: true
+	}
+}
+
+def installed(){
+	log.debug "Installing 'Immersion Thermostat' with settings: ${settings}"
+    schedule(timeOfStart, "scheduleCheck")
+	subscribe(sensor, "temperature", temperatureHandler)
+}
+
+def updated(){
+	unschedule()
+    unsubscribe()
+    log.debug "Updating 'Immersion Thermostat' with settings: ${settings}"
+	schedule(timeOfStart, "scheduleCheck")
+	subscribe(sensor, "temperature", temperatureHandler)
+}
+
+def scheduleCheck(){
+log.debug "Schedule Trigger... Lets Evaluate if Hot Water is Required"
+Evaluate()
+}
+
+def temperatureHandler(evt){
+log.debug "Temperature Change Trigger... Lets Evaluate if Hot Water is Required"
+Evaluate()
+}
+
+
+def Evaluate(){
+	def lastTemp = sensor.currentTemperature
+    def now = new Date()
+    def startCheck = timeToday(timeOfStart)
+    def stopCheck = timeToday(endTime)
+	log.debug "Current Temp reading: ${lastTemp}"	
+    if(timeOfDayIsBetween(startCheck, stopCheck, now, location.timeZone)){
+        log.debug "We are in the TimeFrame to run this... current probe temp is ${lastTemp}"
+        if (lastTemp != null) {
+			if (setpoint - lastTemp > 0) {
+            	outlets.on()
+                log.debug "Immersion turned on as probe: ${lastTemp} is lower than setpoint: ${setpoint}"
+		        }
+        	else {
+				outlets.off()
+                log.debug "Immersion turned off as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint}"
+                return
+			}
+        }
+        else {
+			outlets.off()
+            log.debug "Immersion turned off as Null Temperature from Probe!"
+		} 
+    }
+	else{
+        log.debug "We are outside the time window, but maybe the Immersion was switched on manually, so lets handle that..."
+        if (lastTemp != null && outlets.on()) {
+			if (setpoint - lastTemp > 0) {
+            	log.debug "Immersion is already on. Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
+		        }
+        	else {
+				outlets.off()
+                log.debug "Immersion turned off as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint}. Noo need for it to me on."
+                return
+			}
+        }
+   		else{
+        log.debug "Immersion turned off, nothing to do"
+        }
+    }
+ }   
