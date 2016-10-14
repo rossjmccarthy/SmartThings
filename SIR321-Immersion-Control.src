@@ -1,5 +1,5 @@
 /**
- *  Copyright 2016 Ross McCarthy
+ *  Copyright 2015 SmartThings
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -43,6 +43,7 @@ preferences {
 def installed(){
 	log.debug "Installing 'Immersion Thermostat' with settings: ${settings}"
     schedule(timeOfStart, "scheduleCheck")
+    schedule(endTime, "EndOfSchedule")    
 	subscribe(sensor, "temperature", temperatureHandler)
 }
 
@@ -51,6 +52,7 @@ def updated(){
     unsubscribe()
     log.debug "Updating 'Immersion Thermostat' with settings: ${settings}"
 	schedule(timeOfStart, "scheduleCheck")
+    schedule(endTime, "EndOfSchedule")
 	subscribe(sensor, "temperature", temperatureHandler)
 }
 
@@ -59,8 +61,13 @@ log.debug "Schedule Trigger... Lets Evaluate if Hot Water is Required"
 Evaluate()
 }
 
+def EndOfSchedule(){
+log.debug "Schedule Trigger... End time reach. Turn of Immersion"
+outlets.off()
+}
+
 def temperatureHandler(evt){
-log.debug "Temperature Change Trigger... Lets Evaluate if Hot Water is Required"
+log.debug "Temperature Change Trigger... Lets Evaluate"
 Evaluate()
 }
 
@@ -72,7 +79,7 @@ def Evaluate(){
     def stopCheck = timeToday(endTime)
 	log.debug "Current Temp reading: ${lastTemp}"	
     if(timeOfDayIsBetween(startCheck, stopCheck, now, location.timeZone)){
-        log.debug "We are in the TimeFrame to run this... current probe temp is ${lastTemp}"
+        log.debug "We are between out set stand and end times. Lets do something..."
         if (lastTemp != null) {
 			if (setpoint - lastTemp > 0) {
             	outlets.on()
@@ -93,16 +100,16 @@ def Evaluate(){
         log.debug "We are outside the time window, but maybe the Immersion was switched on manually, so lets handle that..."
         if (lastTemp != null && outlets.on()) {
 			if (setpoint - lastTemp > 0) {
-            	log.debug "Immersion is already on. Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
+            	log.debug "Immersion is on already. Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
 		        }
         	else {
 				outlets.off()
-                log.debug "Immersion turned off as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint}. Noo need for it to me on."
+                log.debug "Immersion was on but as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint} no need for it to remain on."
                 return
 			}
         }
    		else{
-        log.debug "Immersion turned off, nothing to do"
+        log.debug "Immersion already turned off, nothing to do"
         }
     }
  }   
