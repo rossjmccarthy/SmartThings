@@ -16,7 +16,7 @@
  */
 definition(
     name: "SIR321 Immersion Control",
-    namespace: "smartthings",
+    namespace: "rossjmccarthy/SmartThings",
     author: "Ross McCarthy",
     description: "Control SIR321 Immersion Switch. Heat when within a time window to a preset temperature",
     category: "Green Living",
