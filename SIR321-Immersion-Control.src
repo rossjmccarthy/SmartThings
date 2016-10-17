@@ -16,7 +16,7 @@
  */
 definition(
     name: "SIR321 Immersion Control",
-    namespace: "rossjmccarthy/SmartThings",
+    namespace: "smartthings",
     author: "Ross McCarthy",
     description: "Control SIR321 Immersion Switch. Heat when within a time window to a preset temperature",
     category: "Green Living",
@@ -42,17 +42,17 @@ preferences {
 
 def installed(){
 	log.debug "Installing 'Immersion Thermostat' with settings: ${settings}"
-    	schedule(timeOfStart, "scheduleCheck")
-  	schedule(endTime, "EndOfSchedule")    
+    schedule(timeOfStart, "scheduleCheck")
+    schedule(endTime, "EndOfSchedule")    
 	subscribe(sensor, "temperature", temperatureHandler)
 }
 
 def updated(){
 	unschedule()
-    	unsubscribe()
-    	log.debug "Updating 'Immersion Thermostat' with settings: ${settings}"
+    unsubscribe()
+    log.debug "Updating 'Immersion Thermostat' with settings: ${settings}"
 	schedule(timeOfStart, "scheduleCheck")
-    	schedule(endTime, "EndOfSchedule")
+    schedule(endTime, "EndOfSchedule")
 	subscribe(sensor, "temperature", temperatureHandler)
 }
 
@@ -77,7 +77,6 @@ def Evaluate(){
     def now = new Date()
     def startCheck = timeToday(timeOfStart)
     def stopCheck = timeToday(endTime)
-    log.debug "Current Temp reading: ${lastTemp}"	
     if(timeOfDayIsBetween(startCheck, stopCheck, now, location.timeZone)){
         log.debug "We are between our set stand and end times. Lets do something..."
         if (lastTemp != null) {
@@ -93,24 +92,26 @@ def Evaluate(){
         }
         else {
 			outlets.off()
-            log.debug "Immersion turned off as Null Temperature from Probe!"
+            log.debug "Immersion turned off as No Temperature from Probe!"
 		} 
     }
 	else{
         log.debug "We are outside the time window, but maybe the Immersion was switched on manually, so lets handle that..."
-        if (lastTemp != null && outlets.on()) {
+        def switchval = outlets.currentValue("switch")
+        log.debug "Immersion Switch is currently ${switchval}"
+        if (switchval == "on") {
 			if (setpoint - lastTemp > 0) {
-            	log.debug "Immersion is on already. Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
+            	log.debug "Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
 		        }
         	else {
-				outlets.off()
-                log.debug "Immersion was on but as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint} no need for it to remain on."
+				log.debug "Probe: ${lastTemp} is equal or higher than setpoint: ${setpoint} no need for it to remain on."
+                outlets.off()
                 return
 			}
         }
    		else{
         log.debug "Immersion already turned off, nothing to do"
-	outlets.off()
+        outlets.off()
         }
     }
  }   
