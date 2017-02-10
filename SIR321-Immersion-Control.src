@@ -21,7 +21,8 @@ definition(
     description: "Control SIR321 Immersion Switch. Heat when within a time window to a preset temperature",
     category: "Green Living",
     iconUrl: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn.png",
-    iconX2Url: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn@2x.png"
+    iconX2Url: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn@2x.png",
+    iconX3Url: "http://cdn.device-icons.smartthings.com/Bath/bath18-icn@2x.png"
 )
 
 preferences {
@@ -58,7 +59,7 @@ def updated(){
 
 def scheduleCheck(){
 log.debug "Schedule Trigger... Lets Evaluate if Hot Water is Required"
-Evaluate()
+EvaluateSched()
 }
 
 def EndOfSchedule(){
@@ -68,37 +69,62 @@ outlets.off()
 
 def temperatureHandler(evt){
 log.debug "Temperature Change Trigger... Lets Evaluate"
-Evaluate()
+EvaluateTempChange()
 }
 
 
-def Evaluate(){
+def EvaluateSched(){
 	def lastTemp = sensor.currentTemperature
     def now = new Date()
     def startCheck = timeToday(timeOfStart)
     def stopCheck = timeToday(endTime)
-    if(timeOfDayIsBetween(startCheck, stopCheck, now, location.timeZone)){
-        log.debug "We are between our set stand and end times. Lets do something..."
+    log.debug "Start time is set to $startCheck and endtime will be $stopCheck"
         if (lastTemp != null) {
 			if (setpoint - lastTemp > 0) {
             	outlets.on()
-                log.debug "Immersion turned on as probe: ${lastTemp} is lower than setpoint: ${setpoint}"
+                log.debug "Start time trigger. Immersion turned on as probe: ${lastTemp} is lower than setpoint: ${setpoint}"
 		        }
         	else {
 				outlets.off()
-                log.debug "Immersion turned off as probe: ${lastTemp} is equal or higher than setpoint: ${setpoint}"
+                log.debug "Start time trigger but we already have hot water. Immersion off so we don't waste Electricity!"
                 return
 			}
         }
-        else {
-			outlets.off()
-            log.debug "Immersion turned off as No Temperature from Probe!"
-		} 
-    }
-	else{
+}   
+ 
+ 
+ def EvaluateTempChange(){
+	def lastTemp = sensor.currentTemperature
+    def now = new Date()
+    def startCheck = timeToday(timeOfStart)
+    def stopCheck = timeToday(endTime)
+    def switchval = outlets.currentValue("switch")
+    log.debug "Immersion Switch is currently ${switchval}"
+    log.debug "Start time is set to $startCheck and endtime is $stopCheck"
+    if(timeOfDayIsBetween(startCheck, stopCheck, now, location.timeZone)){
+        log.debug "We are between our set stand and end times. Lets do something..."
+          if (switchval == "on") {
+				if (setpoint - lastTemp > 0) {
+            		log.debug "Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave immersion on for now"
+		        	}
+        		else {
+					log.debug "Probe: ${lastTemp} is equal or higher than setpoint: ${setpoint} and switch is on. Turning off!"
+                	outlets.off()
+					}
+       		 }
+            else{
+				if (setpoint - lastTemp > 0) {
+            		log.debug "Probe: ${lastTemp} is lower than setpoint: ${setpoint} and switch is off. Turn on"
+                	outlets.on()
+		        	}
+        		else {
+					log.debug "Probe: ${lastTemp} is equal or higher than setpoint: ${setpoint} and switch is off. So turn leave it!"
+					}
+       		 }
+             }
+      
+	else {
         log.debug "We are outside the time window, but maybe the Immersion was switched on manually, so lets handle that..."
-        def switchval = outlets.currentValue("switch")
-        log.debug "Immersion Switch is currently ${switchval}"
         if (switchval == "on") {
 			if (setpoint - lastTemp > 0) {
             	log.debug "Probe: ${lastTemp} is lower than setpoint: ${setpoint} so leave it on for now"
@@ -114,4 +140,5 @@ def Evaluate(){
         outlets.off()
         }
     }
- }   
+ }
+ 
